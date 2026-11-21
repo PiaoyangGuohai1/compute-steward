@@ -52,11 +52,19 @@ IGNORE_COMMS = {
 }
 
 COMPUTE_BINARIES = (
-    "python", "R", "Rscript", "r", "rscript", "julia", "java", "nextflow", "snakemake",
+    "python", "R", "Rscript", "julia", "java", "nextflow", "snakemake",
     "star", "STAR", "cellranger", "spaceranger", "bwa", "samtools", "bcftools", "bedtools",
     "gatk", "salmon", "kallisto", "minimap2", "bowtie2", "hisat2", "fastp", "plink", "gcta",
     "ray", "Ray", "torchrun",
 )
+
+
+def _is_compute_exe(exe_base: str, full_cmd: str = "") -> bool:
+    if full_cmd.startswith(("/usr/libexec/", "/System/Library/")):
+        return False
+    if exe_base in ("R", "Rscript", "r", "rscript", "star", "STAR", "bwa", "ray", "Ray"):
+        return True
+    return any(exe_base.startswith(b) for b in COMPUTE_BINARIES if b not in ("R", "r", "ray"))
 
 
 # ---------------------------------------------------------------------------
@@ -772,7 +780,7 @@ class HostProbe:
                 continue
             if joined.startswith(("python3 -u -", "python -u -", "python3 - ")) or "/python3 -u -" in joined:
                 continue
-            if not any(exe_base.startswith(b) for b in COMPUTE_BINARIES):
+            if not _is_compute_exe(exe_base, joined):
                 continue
 
             new_pid_cpusec[pid] = pi["cpu_sec"]
@@ -881,7 +889,7 @@ class HostProbe:
             exe_base = os.path.basename(comm)
             if exe_base in IGNORE_COMMS or any(x in full_args for x in ("probe.py", "dashboard_server.py", "Monitor", "Helper", ".app/Contents")):
                 continue
-            if not any(exe_base.startswith(b) for b in COMPUTE_BINARIES):
+            if not _is_compute_exe(exe_base, full_args):
                 continue
             title, cmd_clean = format_job_title(full_args.split(), exe_base, pid)
             jobs.append({
